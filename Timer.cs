@@ -2,21 +2,25 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Timers;
 using Telegram.Bot.Types.Enums;
+using Timer = System.Timers.Timer;
 
 namespace Kazitsky_Bot
 {
     public static class WakeUp
     {
-        private static Timer _timer;
 
-        public static void SetUpTimer(TimeSpan alertTime)
+
+        public static void SetTimer()
         {
-            var current = DateTime.Now;
-            var timeToGo = alertTime - current.TimeOfDay;
-            if (timeToGo < TimeSpan.Zero)
-                return; //time already passed
-            _timer = new Timer(async x => { await WakeUppy(); }, null, timeToGo, Timeout.InfiniteTimeSpan);
+            AlarmClock clock = new AlarmClock(DateTime.Today.AddDays(1).AddHours(7).AddMinutes(30));
+            clock.Alarm += (sender, e) =>
+            {
+                Task.Run(WakeUppy);
+                Console.WriteLine("invoked!");
+            };
+           
         }
 
         private static async Task WakeUppy()
@@ -52,8 +56,50 @@ namespace Kazitsky_Bot
                 s = s + temp;
             }
             await Program.Bot.SendTextMessageAsync(Program.GruppaId, s, ParseMode.Markdown);
-Thread.Sleep(1000);
-            SetUpTimer(new TimeSpan(07, 20, 00));
+            SetTimer();
+        }
+        public class AlarmClock
+        {
+            public AlarmClock(DateTime alarmTime)
+            {
+                this.alarmTime = alarmTime;
+
+                timer = new System.Timers.Timer();
+                timer.Elapsed += timer_Elapsed;
+                timer.Interval = 1000;
+                timer.Start();
+
+                enabled = true;
+            }
+
+            void  timer_Elapsed(object sender, ElapsedEventArgs e)
+            {
+                if(enabled && DateTime.Now > alarmTime)
+                {
+   
+                    enabled = false;
+                    OnAlarm();
+                    timer.Stop();
+                }
+            }
+
+            protected virtual void OnAlarm()
+            {
+                if(alarmEvent != null)
+                    alarmEvent(this, EventArgs.Empty);
+            }
+
+
+            public event EventHandler Alarm
+            {
+                add { alarmEvent += value; }
+                remove { alarmEvent -= value; }
+            }
+
+            private EventHandler alarmEvent;
+            private Timer timer;
+            private DateTime alarmTime;
+            private bool enabled;
         }
     }
 }
